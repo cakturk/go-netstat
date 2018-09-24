@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -32,6 +34,7 @@ func (s *SockAddr) String() string {
 
 type SockTabEntry struct {
 	InodeNum   uint
+	ino        string
 	LocalAddr  *SockAddr
 	RemoteAddr *SockAddr
 	State      SkState
@@ -126,6 +129,7 @@ func parseSocktab(r io.Reader) ([]SockTabEntry, error) {
 		}
 		e.UID = uint32(u)
 		u, err = strconv.ParseUint(fields[9], 10, 32)
+		e.ino = strings.TrimSpace(fields[9])
 		if err != nil {
 			return nil, err
 		}
@@ -135,10 +139,62 @@ func parseSocktab(r io.Reader) ([]SockTabEntry, error) {
 	return tab, br.Err()
 }
 
+const sockPrefix = "socket:["
+
+func iterFdDir(d string, sktab []SockTabEntry) {
+	// link name is of the form socket:[5860846]
+	fi, err := ioutil.ReadDir(d)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	for _, file := range fi {
+		if d != "/proc/9997/fd" {
+			continue
+		}
+		fd := path.Join(d, file.Name())
+		lname, err := os.Readlink(fd)
+		if err != nil {
+			log.Fatal(err)
+			continue
+		}
+		// fmt.Printf("fname: %v\n", lname)
+
+		for _, sk := range sktab {
+			ss := sockPrefix + sk.ino + "]"
+			fmt.Printf("try ss: %s, %s\n", ss, lname)
+			if ss == lname {
+				fmt.Printf("match lname: %v\n", lname)
+			}
+		}
+	}
+}
+
+func extractProcInfo(sktab []SockTabEntry) {
+	basedir := "/proc"
+	fi, err := ioutil.ReadDir(basedir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, file := range fi {
+		if !file.IsDir() {
+			continue
+		}
+		pid, err := strconv.Atoi(file.Name())
+		_ = pid
+		if err != nil {
+			continue
+		}
+		fddir := path.Join(basedir, file.Name(), "/fd")
+		iterFdDir(fddir, sktab)
+	}
+}
+
 func NetStat() error {
 	// to change the flags on the default logger
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	f, err := os.Open(tcpTab)
+	f, err := os.Open(udpTab)
 	if err != nil {
 		return err
 	}
@@ -149,5 +205,6 @@ func NetStat() error {
 	for _, t := range tabs {
 		fmt.Println(t)
 	}
+	extractProcInfo(tabs)
 	return nil
 }
