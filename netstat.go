@@ -2,6 +2,7 @@ package gonetstat
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -33,12 +34,17 @@ func (s *SockAddr) String() string {
 }
 
 type SockTabEntry struct {
-	InodeNum   uint
 	ino        string
 	LocalAddr  *SockAddr
 	RemoteAddr *SockAddr
 	State      SkState
 	UID        uint32
+	Process    *Process
+}
+
+type Process struct {
+	pid  int
+	name string
 }
 
 // SkState type represents socket connection state
@@ -128,43 +134,60 @@ func parseSocktab(r io.Reader) ([]SockTabEntry, error) {
 			return nil, err
 		}
 		e.UID = uint32(u)
-		u, err = strconv.ParseUint(fields[9], 10, 32)
 		e.ino = strings.TrimSpace(fields[9])
-		if err != nil {
-			return nil, err
-		}
-		e.InodeNum = uint(u)
 		tab = append(tab, e)
 	}
 	return tab, br.Err()
 }
 
+type procFd struct {
+	base  string
+	pid   int
+	sktab []SockTabEntry
+	p     *Process
+}
+
 const sockPrefix = "socket:["
 
-func iterFdDir(d string, sktab []SockTabEntry) {
+func (p *procFd) iterFdDir() {
 	// link name is of the form socket:[5860846]
-	fi, err := ioutil.ReadDir(d)
+	fddir := path.Join(p.base, "/fd")
+	fi, err := ioutil.ReadDir(fddir)
 	if err != nil {
-		log.Print(err)
+		// log.Print(err)
 		return
 	}
+Loop:
 	for _, file := range fi {
-		if d != "/proc/9997/fd" {
-			continue
+		if fddir != "/proc/9997/fd" {
+			// continue
 		}
-		fd := path.Join(d, file.Name())
+		fd := path.Join(fddir, file.Name())
 		lname, err := os.Readlink(fd)
 		if err != nil {
-			log.Fatal(err)
+			// log.Fatal(err)
 			continue
 		}
 		// fmt.Printf("fname: %v\n", lname)
+		p.p = nil
 
-		for _, sk := range sktab {
+		var buf [128]byte
+
+		for i := range p.sktab {
+			sk := &p.sktab[i]
 			ss := sockPrefix + sk.ino + "]"
-			fmt.Printf("try ss: %s, %s\n", ss, lname)
 			if ss == lname {
-				fmt.Printf("match lname: %v\n", lname)
+				if p.p == nil {
+					stat, err := os.Open(path.Join(p.base, "stat"))
+					if err != nil {
+						continue Loop
+					}
+					n, err := stat.Read(buf[:])
+					z := bytes.SplitN(buf[:n], []byte(" "), 3)
+					fmt.Printf("stat: %q\n", z[1])
+					p.p = &Process{p.pid, ""}
+				}
+				sk.Process = p.p
 			}
 		}
 	}
@@ -186,8 +209,9 @@ func extractProcInfo(sktab []SockTabEntry) {
 		if err != nil {
 			continue
 		}
-		fddir := path.Join(basedir, file.Name(), "/fd")
-		iterFdDir(fddir, sktab)
+		base := path.Join(basedir, file.Name())
+		proc := procFd{base: base, pid: pid, sktab: sktab}
+		proc.iterFdDir()
 	}
 }
 
@@ -202,9 +226,9 @@ func NetStat() error {
 	if err != nil {
 		return err
 	}
+	extractProcInfo(tabs)
 	for _, t := range tabs {
 		fmt.Println(t)
 	}
-	extractProcInfo(tabs)
 	return nil
 }
