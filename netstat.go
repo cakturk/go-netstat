@@ -24,6 +24,7 @@ const (
 	ipv6StrLen = 32
 )
 
+// SockAddr represents an ip:port pair
 type SockAddr struct {
 	IP   net.IP
 	Port uint16
@@ -33,6 +34,7 @@ func (s *SockAddr) String() string {
 	return fmt.Sprintf("%v:%d", s.IP, s.Port)
 }
 
+// SockTabEntry type represents each line of the /proc/net/[tcp|udp]
 type SockTabEntry struct {
 	ino        string
 	LocalAddr  *SockAddr
@@ -42,9 +44,14 @@ type SockTabEntry struct {
 	Process    *Process
 }
 
+// Process holds the PID and process name to which each socket belongs
 type Process struct {
 	pid  int
 	name string
+}
+
+func (p *Process) String() string {
+	return fmt.Sprintf("%d/%s", p.pid, p.name)
 }
 
 // SkState type represents socket connection state
@@ -149,52 +156,60 @@ type procFd struct {
 
 const sockPrefix = "socket:["
 
+func getProcName(s []byte) string {
+	i := bytes.Index(s, []byte("("))
+	if i < 0 {
+		return ""
+	}
+	j := bytes.LastIndex(s, []byte(")"))
+	if i < 0 {
+		return ""
+	}
+	if i > j {
+		return ""
+	}
+	return string(s[i+1 : j])
+}
+
 func (p *procFd) iterFdDir() {
 	// link name is of the form socket:[5860846]
 	fddir := path.Join(p.base, "/fd")
 	fi, err := ioutil.ReadDir(fddir)
 	if err != nil {
-		// log.Print(err)
 		return
 	}
-Loop:
+	var buf [128]byte
+
 	for _, file := range fi {
-		if fddir != "/proc/9997/fd" {
-			// continue
-		}
 		fd := path.Join(fddir, file.Name())
 		lname, err := os.Readlink(fd)
 		if err != nil {
-			// log.Fatal(err)
 			continue
 		}
-		// fmt.Printf("fname: %v\n", lname)
-		p.p = nil
-
-		var buf [128]byte
 
 		for i := range p.sktab {
 			sk := &p.sktab[i]
 			ss := sockPrefix + sk.ino + "]"
-			if ss == lname {
-				if p.p == nil {
-					stat, err := os.Open(path.Join(p.base, "stat"))
-					if err != nil {
-						continue Loop
-					}
-					n, err := stat.Read(buf[:])
-					z := bytes.SplitN(buf[:n], []byte(" "), 3)
-					fmt.Printf("stat: %q\n", z[1])
-					p.p = &Process{p.pid, ""}
-				}
-				sk.Process = p.p
+			if ss != lname {
+				continue
 			}
+			if p.p == nil {
+				stat, err := os.Open(path.Join(p.base, "stat"))
+				if err != nil {
+					return
+				}
+				n, err := stat.Read(buf[:])
+				z := bytes.SplitN(buf[:n], []byte(" "), 3)
+				name := getProcName(z[1])
+				p.p = &Process{p.pid, name}
+			}
+			sk.Process = p.p
 		}
 	}
 }
 
 func extractProcInfo(sktab []SockTabEntry) {
-	basedir := "/proc"
+	const basedir = "/proc"
 	fi, err := ioutil.ReadDir(basedir)
 	if err != nil {
 		log.Fatal(err)
@@ -205,7 +220,6 @@ func extractProcInfo(sktab []SockTabEntry) {
 			continue
 		}
 		pid, err := strconv.Atoi(file.Name())
-		_ = pid
 		if err != nil {
 			continue
 		}
@@ -215,10 +229,11 @@ func extractProcInfo(sktab []SockTabEntry) {
 	}
 }
 
+// NetStat - collect information about network port status
 func NetStat() error {
 	// to change the flags on the default logger
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	f, err := os.Open(udpTab)
+	f, err := os.Open(tcpTab)
 	if err != nil {
 		return err
 	}
