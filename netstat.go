@@ -141,7 +141,7 @@ func parseSocktab(r io.Reader) ([]SockTabEntry, error) {
 			return nil, err
 		}
 		e.UID = uint32(u)
-		e.ino = strings.TrimSpace(fields[9])
+		e.ino = fields[9]
 		tab = append(tab, e)
 	}
 	return tab, br.Err()
