@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/cakturk/gonetstat"
 )
@@ -33,6 +34,11 @@ func main() {
 	case *listening:
 		f = Listening
 	}
+
+	if os.Geteuid() != 0 {
+		fmt.Println("Not all processes could be identified, you would have to be root to see it all.")
+	}
+	fmt.Printf("Proto %-23s %-23s %-12s %-16s\n", "Local Addr", "Foreign Addr", "State", "PID/Program name")
 
 	if *udp {
 		tabs, err := gonetstat.UDPSocks()
@@ -68,6 +74,7 @@ func displaySockInfo(proto string, f NetFlags, s []gonetstat.SockTabEntry) {
 		if e.Process != nil {
 			p = e.Process.String()
 		}
+
 		fmt.Printf("%s   %-23s %-23s %-12s %-16s\n", proto, e.LocalAddr, e.RemoteAddr, e.State, p)
 	}
 }
