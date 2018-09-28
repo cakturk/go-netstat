@@ -13,6 +13,7 @@ var (
 	tcp       = flag.Bool("tcp", false, "display TCP sockets")
 	listening = flag.Bool("lis", false, "display only listening sockets")
 	all       = flag.Bool("all", false, "display both listening and non-listening sockets")
+	help      = flag.Bool("help", false, "display this help screen")
 )
 
 // NetFlags represents the type of a flag
@@ -26,6 +27,11 @@ const (
 
 func main() {
 	flag.Parse()
+
+	if *help {
+		flag.Usage()
+		os.Exit(0)
+	}
 
 	var f NetFlags
 	switch {
@@ -41,6 +47,7 @@ func main() {
 	fmt.Printf("Proto %-23s %-23s %-12s %-16s\n", "Local Addr", "Foreign Addr", "State", "PID/Program name")
 
 	if *udp {
+		f = All
 		tabs, err := gonetstat.UDPSocks()
 		if err == nil {
 			displaySockInfo("udp", f, tabs)
