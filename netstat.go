@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	tcpTab = "/proc/net/tcp"
-	udpTab = "/proc/net/udp"
+	pathTCPTab = "/proc/net/tcp"
+	pathUDPTab = "/proc/net/udp"
 
 	ipv4StrLen = 8
 	ipv6StrLen = 32
@@ -71,7 +71,7 @@ var skStates = [...]struct {
 	{0x04, "FIN_WAIT1"},
 	{0x05, "FIN_WAIT2"},
 	{0x06, "TIME_WAIT"},
-	{0x07, "CLOSE"},
+	{0x07, ""}, // CLOSE
 	{0x08, "CLOSE_WAIT"},
 	{0x09, "LAST_ACK"},
 	{0x0A, "LISTEN"},
@@ -233,7 +233,7 @@ func extractProcInfo(sktab []SockTabEntry) {
 func NetStat() error {
 	// to change the flags on the default logger
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	f, err := os.Open(tcpTab)
+	f, err := os.Open(pathTCPTab)
 	if err != nil {
 		return err
 	}
@@ -246,4 +246,27 @@ func NetStat() error {
 		fmt.Println(t)
 	}
 	return nil
+}
+
+func doNetstat(path string) ([]SockTabEntry, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	tabs, err := parseSocktab(f)
+	if err != nil {
+		return nil, err
+	}
+	extractProcInfo(tabs)
+	return tabs, nil
+}
+
+// TCPSocks returns active TCP sockets
+func TCPSocks() ([]SockTabEntry, error) {
+	return doNetstat(pathTCPTab)
+}
+
+// UDPSocks returns active UDP sockets
+func UDPSocks() ([]SockTabEntry, error) {
+	return doNetstat(pathUDPTab)
 }
