@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cakturk/gonetstat"
+	"github.com/cakturk/go-netstat/netstat"
 )
 
 var (
@@ -48,7 +48,7 @@ func main() {
 
 	if *udp {
 		f = All
-		tabs, err := gonetstat.UDPSocks()
+		tabs, err := netstat.UDPSocks()
 		if err == nil {
 			displaySockInfo("udp", f, tabs)
 		}
@@ -57,14 +57,14 @@ func main() {
 	}
 
 	if *tcp {
-		tabs, err := gonetstat.TCPSocks()
+		tabs, err := netstat.TCPSocks()
 		if err == nil {
 			displaySockInfo("tcp", f, tabs)
 		}
 	}
 }
 
-func displaySockInfo(proto string, f NetFlags, s []gonetstat.SockTabEntry) {
+func displaySockInfo(proto string, f NetFlags, s []netstat.SockTabEntry) {
 	for _, e := range s {
 		switch f {
 		case Listening:

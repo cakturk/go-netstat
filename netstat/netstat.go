@@ -1,4 +1,4 @@
-package gonetstat
+package netstat
 
 import (
 	"bufio"
