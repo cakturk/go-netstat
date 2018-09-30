@@ -16,15 +16,6 @@ var (
 	help      = flag.Bool("help", false, "display this help screen")
 )
 
-// NetFlags represents the type of a flag
-type NetFlags uint
-
-// Different flag types
-const (
-	Listening NetFlags = iota + 1
-	All
-)
-
 func main() {
 	flag.Parse()
 
@@ -33,55 +24,49 @@ func main() {
 		os.Exit(0)
 	}
 
-	var f NetFlags
-	switch {
-	case *all:
-		f = All
-	case *listening:
-		f = Listening
-	}
-
 	if os.Geteuid() != 0 {
 		fmt.Println("Not all processes could be identified, you would have to be root to see it all.")
 	}
 	fmt.Printf("Proto %-23s %-23s %-12s %-16s\n", "Local Addr", "Foreign Addr", "State", "PID/Program name")
 
 	if *udp {
-		f = All
-		tabs, err := netstat.UDPSocks()
+		tabs, err := netstat.UDPSocks(netstat.NoopFilter)
 		if err == nil {
-			displaySockInfo("udp", f, tabs)
+			displaySockInfo("udp", tabs)
 		}
 	} else {
 		*tcp = true
 	}
 
 	if *tcp {
-		tabs, err := netstat.TCPSocks()
+		var fn netstat.AcceptFn
+
+		switch {
+		case *all:
+			fn = func(*netstat.SockTabEntry) bool { return true }
+		case *listening:
+			fn = func(s *netstat.SockTabEntry) bool {
+				return s.State == netstat.Listen
+			}
+		default:
+			fn = func(s *netstat.SockTabEntry) bool {
+				return s.State != netstat.Listen
+			}
+		}
+
+		tabs, err := netstat.TCPSocks(fn)
 		if err == nil {
-			displaySockInfo("tcp", f, tabs)
+			displaySockInfo("tcp", tabs)
 		}
 	}
 }
 
-func displaySockInfo(proto string, f NetFlags, s []netstat.SockTabEntry) {
+func displaySockInfo(proto string, s []netstat.SockTabEntry) {
 	for _, e := range s {
-		switch f {
-		case Listening:
-			if e.State != 0x0a {
-				continue
-			}
-		case All: // noop case
-		default:
-			if e.State == 0x0a {
-				continue
-			}
-		}
 		p := ""
 		if e.Process != nil {
 			p = e.Process.String()
 		}
-
 		fmt.Printf("%s   %-23s %-23s %-12s %-16s\n", proto, e.LocalAddr, e.RemoteAddr, e.State, p)
 	}
 }

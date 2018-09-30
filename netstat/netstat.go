@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"path"
@@ -57,26 +56,46 @@ func (p *Process) String() string {
 // SkState type represents socket connection state
 type SkState uint8
 
+// Socket states
+const (
+	Established SkState = 0x01
+	SynSent             = 0x02
+	SynRecv             = 0x03
+	FinWait1            = 0x04
+	FinWait2            = 0x05
+	TimeWait            = 0x06
+	Close               = 0x07
+	CloseWait           = 0x08
+	LastAck             = 0x09
+	Listen              = 0x0a
+	Closing             = 0x0b
+)
+
 func (s SkState) String() string {
-	return skStates[s-1].s
+	return skStates[s]
 }
 
-var skStates = [...]struct {
-	st uint8
-	s  string
-}{
-	{0x01, "ESTABLISHED"},
-	{0x02, "SYN_SENT"},
-	{0x03, "SYN_RECV"},
-	{0x04, "FIN_WAIT1"},
-	{0x05, "FIN_WAIT2"},
-	{0x06, "TIME_WAIT"},
-	{0x07, ""}, // CLOSE
-	{0x08, "CLOSE_WAIT"},
-	{0x09, "LAST_ACK"},
-	{0x0A, "LISTEN"},
-	{0x0B, "CLOSING"},
+var skStates = [...]string{
+	"UNKNOWN",
+	"ESTABLISHED",
+	"SYN_SENT",
+	"SYN_RECV",
+	"FIN_WAIT1",
+	"FIN_WAIT2",
+	"TIME_WAIT",
+	"", // CLOSE
+	"CLOSE_WAIT",
+	"LAST_ACK",
+	"LISTEN",
+	"CLOSING",
 }
+
+// AcceptFn is used to filter socket entries. The value returned indicates
+// whether the element is to be appended to the socket list.
+type AcceptFn func(*SockTabEntry) bool
+
+// NoopFilter - a test function returning true for all elements
+func NoopFilter(*SockTabEntry) bool { return true }
 
 // Errors returned by gonetstat
 var (
@@ -101,7 +120,7 @@ func parseAddr(s string) (*SockAddr, error) {
 	return &SockAddr{IP: ip, Port: uint16(v)}, nil
 }
 
-func parseSocktab(r io.Reader) ([]SockTabEntry, error) {
+func parseSocktab(r io.Reader, accept AcceptFn) ([]SockTabEntry, error) {
 	br := bufio.NewScanner(r)
 	tab := make([]SockTabEntry, 0, 4)
 
@@ -142,7 +161,9 @@ func parseSocktab(r io.Reader) ([]SockTabEntry, error) {
 		}
 		e.UID = uint32(u)
 		e.ino = fields[9]
-		tab = append(tab, e)
+		if accept(&e) {
+			tab = append(tab, e)
+		}
 	}
 	return tab, br.Err()
 }
@@ -216,7 +237,7 @@ func extractProcInfo(sktab []SockTabEntry) {
 	const basedir = "/proc"
 	fi, err := ioutil.ReadDir(basedir)
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
 
 	for _, file := range fi {
@@ -233,31 +254,13 @@ func extractProcInfo(sktab []SockTabEntry) {
 	}
 }
 
-// NetStat - collect information about network port status
-func NetStat() error {
-	// to change the flags on the default logger
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	f, err := os.Open(pathTCPTab)
-	if err != nil {
-		return err
-	}
-	tabs, err := parseSocktab(f)
-	if err != nil {
-		return err
-	}
-	extractProcInfo(tabs)
-	for _, t := range tabs {
-		fmt.Println(t)
-	}
-	return nil
-}
-
-func doNetstat(path string) ([]SockTabEntry, error) {
+// doNetstat - collect information about network port status
+func doNetstat(path string, fn AcceptFn) ([]SockTabEntry, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	tabs, err := parseSocktab(f)
+	tabs, err := parseSocktab(f, fn)
 	f.Close()
 	if err != nil {
 		return nil, err
@@ -266,12 +269,14 @@ func doNetstat(path string) ([]SockTabEntry, error) {
 	return tabs, nil
 }
 
-// TCPSocks returns active TCP sockets
-func TCPSocks() ([]SockTabEntry, error) {
-	return doNetstat(pathTCPTab)
+// TCPSocks returns a slice of active TCP sockets containing only those
+// elements that satisfy the accept function
+func TCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
+	return doNetstat(pathTCPTab, accept)
 }
 
-// UDPSocks returns active UDP sockets
-func UDPSocks() ([]SockTabEntry, error) {
-	return doNetstat(pathUDPTab)
+// UDPSocks returns a slice of active UDP sockets containing only those
+// elements that satisfy the accept function
+func UDPSocks(accept AcceptFn) ([]SockTabEntry, error) {
+	return doNetstat(pathUDPTab, accept)
 }
