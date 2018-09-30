@@ -199,6 +199,10 @@ func (p *procFd) iterFdDir() {
 					return
 				}
 				n, err := stat.Read(buf[:])
+				stat.Close()
+				if err != nil {
+					return
+				}
 				z := bytes.SplitN(buf[:n], []byte(" "), 3)
 				name := getProcName(z[1])
 				p.p = &Process{p.pid, name}
@@ -254,6 +258,7 @@ func doNetstat(path string) ([]SockTabEntry, error) {
 		return nil, err
 	}
 	tabs, err := parseSocktab(f)
+	f.Close()
 	if err != nil {
 		return nil, err
 	}
