@@ -13,10 +13,10 @@ Usage of ./go-netstat:
   -udp
     	display UDP sockets
 ```
-### Install:
+### Installation:
 
 ```
-$ go install github.com/cakturk/go-netstat
+$ go get github.com/cakturk/go-netstat
 ```
 
 ### Using as a library
@@ -33,8 +33,8 @@ import (
 )
 
 func displaySocks() error {
-	// TCP sockets
-	socks, err := netstat.UDPSocks()
+	// UDP sockets
+	socks, err := netstat.UDPSocks(netstat.NoopFilter)
 	if err != nil {
 		return err
 	}
@@ -42,14 +42,32 @@ func displaySocks() error {
 		fmt.Printf("%v\n", e)
 	}
 
-	// UDP sockets
-	socks, err = netstat.TCPSocks()
+	// TCP sockets
+	socks, err = netstat.TCPSocks(netstat.NoopFilter)
 	if err != nil {
 		return err
 	}
 	for _, e := range socks {
 		fmt.Printf("%v\n", e)
 	}
+
+	// get only listening TCP sockets
+	tabs, err = netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
+		return s.State == netstat.Listen
+	})
+	if err != nil {
+		return err
+	}
+	for _, e := range socks {
+		fmt.Printf("%v\n", e)
+	}
+
+	// list all the TCP sockets in state FIN_WAIT_1 for your HTTP server
+	tabs, err = netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
+		return s.State == netstat.FinWait1 && s.LocalAddr.Port == 80
+	})
+	// error handling, etc.
+
 	return nil
 }
 ```
