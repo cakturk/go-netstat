@@ -8,6 +8,8 @@ Usage of ./go-netstat:
     	display this help screen
   -lis
     	display only listening sockets
+  -res
+        lookup symbolic names for host addresses
   -tcp
     	display TCP sockets
   -udp

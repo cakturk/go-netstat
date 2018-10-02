@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
 	"os"
 
 	"github.com/cakturk/go-netstat/netstat"
@@ -13,6 +14,7 @@ var (
 	tcp       = flag.Bool("tcp", false, "display TCP sockets")
 	listening = flag.Bool("lis", false, "display only listening sockets")
 	all       = flag.Bool("all", false, "display both listening and non-listening sockets")
+	resolve   = flag.Bool("res", false, "lookup symbolic names for host addresses")
 	help      = flag.Bool("help", false, "display this help screen")
 )
 
@@ -62,11 +64,29 @@ func main() {
 }
 
 func displaySockInfo(proto string, s []netstat.SockTabEntry) {
+	lookup := func(skaddr *netstat.SockAddr) string {
+		const IPv4Strlen = 15
+		if *resolve {
+			addr := skaddr.IP.String()
+			names, err := net.LookupAddr(addr)
+			if err == nil {
+				addr := names[0]
+				if len(addr) > IPv4Strlen {
+					addr = addr[0:IPv4Strlen]
+				}
+				return fmt.Sprintf("%s:%d", addr, skaddr.Port)
+			}
+		}
+		return skaddr.String()
+	}
+
 	for _, e := range s {
 		p := ""
 		if e.Process != nil {
 			p = e.Process.String()
 		}
-		fmt.Printf("%s   %-23s %-23s %-12s %-16s\n", proto, e.LocalAddr, e.RemoteAddr, e.State, p)
+		saddr := lookup(e.LocalAddr)
+		daddr := lookup(e.RemoteAddr)
+		fmt.Printf("%s   %-23s %-23s %-12s %-16s\n", proto, saddr, daddr, e.State, p)
 	}
 }
