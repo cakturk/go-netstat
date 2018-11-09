@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"path"
@@ -18,8 +19,10 @@ import (
 )
 
 const (
-	pathTCPTab = "/proc/net/tcp"
-	pathUDPTab = "/proc/net/udp"
+	pathTCPTab  = "/proc/net/tcp"
+	pathTCP6Tab = "/proc/net/tcp6"
+	pathUDPTab  = "/proc/net/udp"
+	pathUDP6Tab = "/proc/net/udp6"
 
 	ipv4StrLen = 8
 	ipv6StrLen = 32
@@ -104,18 +107,52 @@ var (
 	ErrNotEnoughFields = errors.New("gonetstat: not enough fields in the line")
 )
 
+func parseIPv4(s string) (net.IP, error) {
+	v, err := strconv.ParseUint(s, 16, 32)
+	if err != nil {
+		return nil, err
+	}
+	ip := make(net.IP, net.IPv4len)
+	binary.LittleEndian.PutUint32(ip, uint32(v))
+	return ip, nil
+}
+
+func parseIPv6(s string) (net.IP, error) {
+	ip := make(net.IP, net.IPv6len)
+	const grpLen = 4
+	i, j := 0, 4
+	for len(s) != 0 {
+		grp := s[0:8]
+		u, err := strconv.ParseUint(grp, 16, 32)
+		binary.LittleEndian.PutUint32(ip[i:j], uint32(u))
+		if err != nil {
+			return nil, err
+		}
+		i, j = i+grpLen, j+grpLen
+		s = s[8:]
+	}
+	return ip, nil
+}
+
 func parseAddr(s string) (*SockAddr, error) {
 	fields := strings.Split(s, ":")
 	if len(fields) < 2 {
 		return nil, fmt.Errorf("netstat: not enough fields: %v", s)
 	}
-	v, err := strconv.ParseUint(fields[0], 16, 32)
+	var ip net.IP
+	var err error
+	switch len(fields[0]) {
+	case ipv4StrLen:
+		ip, err = parseIPv4(fields[0])
+	case ipv6StrLen:
+		ip, err = parseIPv6(fields[0])
+	default:
+		log.Fatal("Bad formatted string")
+	}
 	if err != nil {
 		return nil, err
 	}
-	ip := make(net.IP, net.IPv4len)
-	binary.LittleEndian.PutUint32(ip[:], uint32(v))
-	v, err = strconv.ParseUint(fields[1], 16, 16)
+	v, err := strconv.ParseUint(fields[1], 16, 16)
 	if err != nil {
 		return nil, err
 	}
@@ -277,8 +314,20 @@ func TCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 	return doNetstat(pathTCPTab, accept)
 }
 
+// TCP6Socks returns a slice of active TCP IPv4 sockets containing only those
+// elements that satisfy the accept function
+func TCP6Socks(accept AcceptFn) ([]SockTabEntry, error) {
+	return doNetstat(pathTCP6Tab, accept)
+}
+
 // UDPSocks returns a slice of active UDP sockets containing only those
 // elements that satisfy the accept function
 func UDPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 	return doNetstat(pathUDPTab, accept)
+}
+
+// UDP6Socks returns a slice of active UDP IPv6 sockets containing only those
+// elements that satisfy the accept function
+func UDP6Socks(accept AcceptFn) ([]SockTabEntry, error) {
+	return doNetstat(pathUDP6Tab, accept)
 }
