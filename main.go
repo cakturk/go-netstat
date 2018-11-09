@@ -91,7 +91,7 @@ func main() {
 		if proto&protoIPv6 == protoIPv6 {
 			tabs, err := netstat.TCP6Socks(fn)
 			if err == nil {
-				displaySockInfo("tcp", tabs)
+				displaySockInfo("tcp6", tabs)
 			}
 		}
 	}
@@ -100,18 +100,21 @@ func main() {
 func displaySockInfo(proto string, s []netstat.SockTabEntry) {
 	lookup := func(skaddr *netstat.SockAddr) string {
 		const IPv4Strlen = 15
+		addr := skaddr.IP.String()
 		if *resolve {
-			addr := skaddr.IP.String()
+			addr = skaddr.IP.String()
 			names, err := net.LookupAddr(addr)
 			if err == nil {
 				addr := names[0]
 				if len(addr) > IPv4Strlen {
 					addr = addr[0:IPv4Strlen]
 				}
-				return fmt.Sprintf("%s:%d", addr, skaddr.Port)
 			}
 		}
-		return skaddr.String()
+		if len(addr) > 17 {
+			addr = addr[:17]
+		}
+		return fmt.Sprintf("%s:%d", addr, skaddr.Port)
 	}
 
 	for _, e := range s {
@@ -121,6 +124,6 @@ func displaySockInfo(proto string, s []netstat.SockTabEntry) {
 		}
 		saddr := lookup(e.LocalAddr)
 		daddr := lookup(e.RemoteAddr)
-		fmt.Printf("%-4s   %-23s %-23s %-12s %-16s\n", proto, saddr, daddr, e.State, p)
+		fmt.Printf("%-4s   %-23.23s %-23.23s %-12s %-16s\n", proto, saddr, daddr, e.State, p)
 	}
 }
