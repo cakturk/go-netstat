@@ -124,6 +124,6 @@ func displaySockInfo(proto string, s []netstat.SockTabEntry) {
 		}
 		saddr := lookup(e.LocalAddr)
 		daddr := lookup(e.RemoteAddr)
-		fmt.Printf("%-4s   %-23.23s %-23.23s %-12s %-16s\n", proto, saddr, daddr, e.State, p)
+		fmt.Printf("%-5s %-23.23s %-23.23s %-12s %-16s\n", proto, saddr, daddr, e.State, p)
 	}
 }
