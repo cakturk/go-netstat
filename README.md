@@ -2,6 +2,8 @@
 
 ```
 Usage of ./go-netstat:
+  -4    display only IPv4 sockets
+  -6    display only IPv6 sockets
   -all
     	display both listening and non-listening sockets
   -help
