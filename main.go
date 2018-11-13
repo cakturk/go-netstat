@@ -99,20 +99,16 @@ func main() {
 
 func displaySockInfo(proto string, s []netstat.SockTabEntry) {
 	lookup := func(skaddr *netstat.SockAddr) string {
-		const IPv4Strlen = 15
+		const IPv4Strlen = 17
 		addr := skaddr.IP.String()
 		if *resolve {
-			addr = skaddr.IP.String()
 			names, err := net.LookupAddr(addr)
 			if err == nil {
-				addr := names[0]
-				if len(addr) > IPv4Strlen {
-					addr = addr[0:IPv4Strlen]
-				}
+				addr = names[0]
 			}
 		}
-		if len(addr) > 17 {
-			addr = addr[:17]
+		if len(addr) > IPv4Strlen {
+			addr = addr[:IPv4Strlen]
 		}
 		return fmt.Sprintf("%s:%d", addr, skaddr.Port)
 	}
