@@ -164,9 +164,7 @@ func parseSocktab(r io.Reader, accept AcceptFn) ([]SockTabEntry, error) {
 	tab := make([]SockTabEntry, 0, 4)
 
 	// Discard title
-	if br.Scan() {
-		_ = br.Text()
-	}
+	br.Scan()
 
 	for br.Scan() {
 		var e SockTabEntry
