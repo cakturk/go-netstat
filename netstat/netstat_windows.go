@@ -51,10 +51,6 @@ const (
 	DeleteTcb           = 0x0c
 )
 
-func (s SkState) String() string {
-	return skStates[s]
-}
-
 var skStates = [...]string{
 	"UNKNOWN",
 	"", // CLOSE
@@ -90,43 +86,51 @@ func memtohs(n unsafe.Pointer) uint16 {
 }
 
 type WinSock struct {
+	Addr uint32
+	Port uint32
+}
+
+func (w *WinSock) Sock() *SockAddr {
+	ip := memToIPv4(unsafe.Pointer(&w.Addr))
+	port := memtohs(unsafe.Pointer(&w.Port))
+	return &SockAddr{IP: ip, Port: port}
+}
+
+type WinSock6 struct {
+	Addr    [net.IPv6len]byte
+	ScopeID uint32
+	Port    uint32
+}
+
+func (w *WinSock6) Sock() *SockAddr {
+	ip := memToIPv6(unsafe.Pointer(&w.Addr[0]))
+	port := memtohs(unsafe.Pointer(&w.Port))
+	return &SockAddr{IP: ip, Port: port}
 }
 
 type MibTCPRow2 struct {
-	State        uint32
-	LocalAddr    uint32
-	LocalPort    uint32
-	RemoteAddr   uint32
-	RemotePort   uint32
-	OwningPid    uint32
+	State      uint32
+	LocalAddr  WinSock
+	RemoteAddr WinSock
+	WinPid
 	OffloadState uint32
 }
 
-func (m *MibTCPRow2) Process(snp ProcessSnapshot) *Process {
-	if m.OwningPid < 1 {
+type WinPid uint32
+
+func (pid WinPid) Process(snp ProcessSnapshot) *Process {
+	if pid < 1 {
 		return nil
 	}
 	return &Process{
-		pid:  int(m.OwningPid),
-		name: snp.ProcPIDToName(m.OwningPid),
+		pid:  int(pid),
+		name: snp.ProcPIDToName(uint32(pid)),
 	}
 }
 
-func (m *MibTCPRow2) LocalSock() *SockAddr {
-	ip := memToIPv4(unsafe.Pointer(&m.LocalAddr))
-	port := memtohs(unsafe.Pointer(&m.LocalPort))
-	return &SockAddr{IP: ip, Port: port}
-}
-
-func (m *MibTCPRow2) RemoteSock() *SockAddr {
-	ip := memToIPv4(unsafe.Pointer(&m.RemoteAddr))
-	port := memtohs(unsafe.Pointer(&m.RemotePort))
-	return &SockAddr{IP: ip, Port: port}
-}
-
-func (m *MibTCPRow2) SockState() SkState {
-	return SkState(m.State)
-}
+func (m *MibTCPRow2) LocalSock() *SockAddr  { return m.LocalAddr.Sock() }
+func (m *MibTCPRow2) RemoteSock() *SockAddr { return m.RemoteAddr.Sock() }
+func (m *MibTCPRow2) SockState() SkState    { return SkState(m.State) }
 
 type MibTCPTable2 struct {
 	NumEntries uint32
@@ -145,34 +149,16 @@ func (t *MibTCPTable2) Rows() []MibTCPRow2 {
 // MibTCP6Row2 structure contains information that describes an IPv6 TCP
 // connection.
 type MibTCP6Row2 struct {
-	LocalAddr    [net.IPv6len]byte
-	LocalScopeID uint32
-	LocalPort    uint32
-
-	RemoteAddr    [net.IPv6len]byte
-	RemoteScopeID uint32
-	RemotePort    uint32
-
-	State        uint32
-	OwningPid    uint32
+	LocalAddr  WinSock6
+	RemoteAddr WinSock6
+	State      uint32
+	WinPid
 	OffloadState uint32
 }
 
-func (m *MibTCP6Row2) LocalSock() *SockAddr {
-	ip := memToIPv6(unsafe.Pointer(&m.LocalAddr))
-	port := memtohs(unsafe.Pointer(&m.LocalPort))
-	return &SockAddr{IP: ip, Port: port}
-}
-
-func (m *MibTCP6Row2) RemoteSock() *SockAddr {
-	ip := memToIPv6(unsafe.Pointer(&m.RemoteAddr))
-	port := memtohs(unsafe.Pointer(&m.RemotePort))
-	return &SockAddr{IP: ip, Port: port}
-}
-
-func (m *MibTCP6Row2) SockState() SkState {
-	return SkState(m.State)
-}
+func (m *MibTCP6Row2) LocalSock() *SockAddr  { return m.LocalAddr.Sock() }
+func (m *MibTCP6Row2) RemoteSock() *SockAddr { return m.RemoteAddr.Sock() }
+func (m *MibTCP6Row2) SockState() SkState    { return SkState(m.State) }
 
 // MibTCP6Table2 structure contains a table of IPv6 TCP connections on the
 // local computer.
@@ -195,16 +181,13 @@ func (t *MibTCP6Table2) Rows() []MibTCP6Row2 {
 // includes the process ID (PID) that issued the call to the bind function for
 // the UDP endpoint
 type MibUDPRowOwnerPID struct {
-	LocalAddr uint32
-	LocalPort uint32
-	OwningPid uint32
+	WinSock
+	WinPid
 }
 
-func (m *MibUDPRowOwnerPID) LocalSock() *SockAddr {
-	ip := memToIPv4(unsafe.Pointer(&m.LocalAddr))
-	port := memtohs(unsafe.Pointer(&m.LocalPort))
-	return &SockAddr{IP: ip, Port: port}
-}
+func (m *MibUDPRowOwnerPID) LocalSock() *SockAddr  { return m.Sock() }
+func (m *MibUDPRowOwnerPID) RemoteSock() *SockAddr { return &SockAddr{net.IPv4zero, 0} }
+func (m *MibUDPRowOwnerPID) SockState() SkState    { return Close }
 
 // MibUDPTableOwnerPID structure contains the User Datagram Protocol (UDP)
 // listener table for IPv4 on the local computer. The table also includes the
@@ -227,17 +210,13 @@ func (t *MibUDPTableOwnerPID) Rows() []MibUDPRowOwnerPID {
 // MibUDP6RowOwnerPID serves the same purpose as MibUDPRowOwnerPID, except that
 // the information in this case is for IPv6.
 type MibUDP6RowOwnerPID struct {
-	LocalAddr    [net.IPv6len]byte
-	LocalScopeID uint32
-	LocalPort    uint32
-	OwningPid    uint32
+	WinSock6
+	WinPid
 }
 
-func (m *MibUDP6RowOwnerPID) LocalSock() *SockAddr {
-	ip := memToIPv6(unsafe.Pointer(&m.LocalAddr))
-	port := memtohs(unsafe.Pointer(&m.LocalPort))
-	return &SockAddr{IP: ip, Port: port}
-}
+func (m *MibUDP6RowOwnerPID) LocalSock() *SockAddr  { return m.Sock() }
+func (m *MibUDP6RowOwnerPID) RemoteSock() *SockAddr { return &SockAddr{net.IPv4zero, 0} }
+func (m *MibUDP6RowOwnerPID) SockState() SkState    { return Close }
 
 // MibUDP6TableOwnerPID serves the same purpose as MibUDPTableOwnerPID for IPv6
 type MibUDP6TableOwnerPID struct {
@@ -492,6 +471,15 @@ type winSockEnt interface {
 	Process(snp ProcessSnapshot) *Process
 }
 
+func toSockTabEntry(ws winSockEnt, snp ProcessSnapshot) SockTabEntry {
+	return SockTabEntry{
+		LocalAddr:  ws.LocalSock(),
+		RemoteAddr: ws.RemoteSock(),
+		State:      ws.SockState(),
+		Process:    ws.Process(snp),
+	}
+}
+
 func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 	tbl, err := GetTCPTable2(true)
 	if err != nil {
@@ -501,30 +489,77 @@ func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	var tab []SockTabEntry
+	var sktab []SockTabEntry
 	s := tbl.Rows()
 	for i := range s {
-		r := &s[i]
-		ent := SockTabEntry{
-			LocalAddr:  r.LocalSock(),
-			RemoteAddr: r.RemoteSock(),
-			State:      r.SockState(),
-			Process:    r.Process(snp),
+		ent := toSockTabEntry(&s[i], snp)
+		if accept(&ent) {
+			sktab = append(sktab, ent)
 		}
-		tab = append(tab, ent)
 	}
 	snp.Close()
-	return tab, nil
+	return sktab, nil
 }
 
 func osTCP6Socks(accept AcceptFn) ([]SockTabEntry, error) {
-	return nil, nil
+	tbl, err := GetTCP6Table2(true)
+	if err != nil {
+		return nil, err
+	}
+	snp, err := CreateToolhelp32Snapshot(Th32csSnapProcess, 0)
+	if err != nil {
+		return nil, err
+	}
+	var sktab []SockTabEntry
+	s := tbl.Rows()
+	for i := range s {
+		ent := toSockTabEntry(&s[i], snp)
+		if accept(&ent) {
+			sktab = append(sktab, ent)
+		}
+	}
+	snp.Close()
+	return sktab, nil
 }
 
 func osUDPSocks(accept AcceptFn) ([]SockTabEntry, error) {
-	return nil, nil
+	tbl, err := GetUDPTableOwnerPID(true)
+	if err != nil {
+		return nil, err
+	}
+	snp, err := CreateToolhelp32Snapshot(Th32csSnapProcess, 0)
+	if err != nil {
+		return nil, err
+	}
+	var sktab []SockTabEntry
+	s := tbl.Rows()
+	for i := range s {
+		ent := toSockTabEntry(&s[i], snp)
+		if accept(&ent) {
+			sktab = append(sktab, ent)
+		}
+	}
+	snp.Close()
+	return sktab, nil
 }
 
 func osUDP6Socks(accept AcceptFn) ([]SockTabEntry, error) {
-	return nil, nil
+	tbl, err := GetUDP6TableOwnerPID(true)
+	if err != nil {
+		return nil, err
+	}
+	snp, err := CreateToolhelp32Snapshot(Th32csSnapProcess, 0)
+	if err != nil {
+		return nil, err
+	}
+	var sktab []SockTabEntry
+	s := tbl.Rows()
+	for i := range s {
+		ent := toSockTabEntry(&s[i], snp)
+		if accept(&ent) {
+			sktab = append(sktab, ent)
+		}
+	}
+	snp.Close()
+	return sktab, nil
 }

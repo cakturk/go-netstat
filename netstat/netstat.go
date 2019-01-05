@@ -38,6 +38,10 @@ func (p *Process) String() string {
 // SkState type represents socket connection state
 type SkState uint8
 
+func (s SkState) String() string {
+	return skStates[s]
+}
+
 // AcceptFn is used to filter socket entries. The value returned indicates
 // whether the element is to be appended to the socket list.
 type AcceptFn func(*SockTabEntry) bool

@@ -103,7 +103,7 @@ func displaySockInfo(proto string, s []netstat.SockTabEntry) {
 		addr := skaddr.IP.String()
 		if *resolve {
 			names, err := net.LookupAddr(addr)
-			if err == nil {
+			if err == nil && len(names) > 0 {
 				addr = names[0]
 			}
 		}

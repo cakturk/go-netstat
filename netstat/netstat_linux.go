@@ -43,10 +43,6 @@ const (
 	Closing             = 0x0b
 )
 
-func (s SkState) String() string {
-	return skStates[s]
-}
-
 var skStates = [...]string{
 	"UNKNOWN",
 	"ESTABLISHED",
