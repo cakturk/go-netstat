@@ -39,23 +39,38 @@ var skStates = [...]string{
 func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 	var s string = "net.inet.tcp.pcblist"
 	var retry = 5
+	var xig, exig *Xinpgen
+	var buf []byte
 	for {
 		b, err := SysctlByName(s)
 		if err != nil {
 			log.Fatal(err)
 			return nil, err
 		}
-		xig := (*Xinpgen)(unsafe.Pointer(&b[0]))
+		xig = (*Xinpgen)(unsafe.Pointer(&b[0]))
 		sxig := unsafe.Sizeof(*xig)
 		eoff := uintptr(len(b)) - sxig
-		exig := (*Xinpgen)(unsafe.Pointer(&b[eoff]))
+		exig = (*Xinpgen)(unsafe.Pointer(&b[eoff]))
 		if xig.Len != uint64(sxig) || exig.Len != uint64(sxig) {
 			log.Fatal("xinpgen size mismatch")
 		}
 		fmt.Printf("xig: %v, buflen: %d, eoff: %d\n", xig, len(b), eoff)
 		if !(xig.Gen != exig.Gen && retry > 0) {
+			buf = b
 			break
 		}
+		retry -= 1
+	}
+	var index uint64
+	index = uint64(index) + xig.Len
+	for {
+		xig = (*Xinpgen)(unsafe.Pointer(&buf[index]))
+		if uintptr(unsafe.Pointer(xig)) >= uintptr(unsafe.Pointer(exig)) {
+			break
+		}
+		xtp := (*Xtcpcb)(unsafe.Pointer(xig))
+		fmt.Printf("Proto: %d\n", xtp.Socket.Xso_protocol)
+		index += xig.Len
 	}
 	return nil, nil
 }

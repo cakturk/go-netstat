@@ -27,6 +27,8 @@ const (
 
 func main() {
 	flag.Parse()
+	netstat.TCPSocks(nil)
+	return
 
 	if *help {
 		flag.Usage()
