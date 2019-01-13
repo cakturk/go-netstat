@@ -4,7 +4,7 @@
 package netstat
 
 type Xinpgen struct {
-	Len   uint64
+	Len   uint32
 	Count uint32
 	Gen   uint64
 	Sogen uint64

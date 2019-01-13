@@ -37,7 +37,7 @@ var skStates = [...]string{
 }
 
 func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
-	var s string = "net.inet.tcp.pcblist"
+	var s = "net.inet.tcp.pcblist"
 	var retry = 5
 	var xig, exig *Xinpgen
 	var buf []byte
@@ -51,8 +51,8 @@ func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 		sxig := unsafe.Sizeof(*xig)
 		eoff := uintptr(len(b)) - sxig
 		exig = (*Xinpgen)(unsafe.Pointer(&b[eoff]))
-		if xig.Len != uint64(sxig) || exig.Len != uint64(sxig) {
-			log.Fatal("xinpgen size mismatch")
+		if xig.Len != uint32(sxig) || exig.Len != uint32(sxig) {
+			log.Fatalf("xinpgen size mismatch, xig: %d, exig: %v", xig, exig)
 		}
 		fmt.Printf("xig: %v, buflen: %d, eoff: %d\n", xig, len(b), eoff)
 		if !(xig.Gen != exig.Gen && retry > 0) {
@@ -61,8 +61,8 @@ func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 		}
 		retry -= 1
 	}
-	var index uint64
-	index = uint64(index) + xig.Len
+	var index uint32
+	index = uint32(index) + xig.Len
 	for {
 		xig = (*Xinpgen)(unsafe.Pointer(&buf[index]))
 		if uintptr(unsafe.Pointer(xig)) >= uintptr(unsafe.Pointer(exig)) {
