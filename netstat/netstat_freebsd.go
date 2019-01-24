@@ -36,6 +36,11 @@ var skStates = [...]string{
 	"CLOSING",
 }
 
+const (
+	InpIPv4 = 0x1
+	InpIPv6 = 0x2
+)
+
 func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 	var s string = "net.inet.tcp.pcblist"
 	var retry = 5
@@ -69,8 +74,19 @@ func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 			break
 		}
 		xtp := (*Xtcpcb)(unsafe.Pointer(xig))
-		fmt.Printf("Proto: %d\n", xtp.Socket.Xso_protocol)
+		// fmt.Printf("Proto: %d\n", xtp.Socket.Xso_protocol)
 		index += xig.Len
+
+		inp := xtp.Inp
+		switch {
+		case inp.Vflag&InpIPv4 == InpIPv4:
+			break
+
+		case inp.Vflag&InpIPv6 == InpIPv6:
+			break
+		}
+
+		fmt.Printf("fport: %x, lport: %x\n", xtp.Inp.Inc.Ie.Ie_fport, xtp.Inp.Inc.Ie.Ie_lport)
 	}
 	return nil, nil
 }
