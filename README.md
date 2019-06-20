@@ -24,6 +24,7 @@ $ go get github.com/cakturk/go-netstat
 ```
 
 ### Using as a library
+#### [Godoc](https://godoc.org/github.com/cakturk/go-netstat/netstat)
 #### Getting the package
 ```
 $ go get github.com/cakturk/go-netstat/netstat
