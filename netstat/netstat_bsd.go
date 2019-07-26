@@ -51,7 +51,7 @@ func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 		sxig := unsafe.Sizeof(*xig)
 		eoff := uintptr(len(b)) - sxig
 		exig = (*Xinpgen)(unsafe.Pointer(&b[eoff]))
-		if xig.Len != uint32(sxig) || exig.Len != uint32(sxig) {
+		if uint64(xig.Len) != uint64(sxig) || uint64(exig.Len) != uint64(sxig) {
 			log.Fatalf("xinpgen size mismatch, xig: %d, exig: %v", xig, exig)
 		}
 		fmt.Printf("xig: %v, buflen: %d, eoff: %d\n", xig, len(b), eoff)
@@ -59,10 +59,10 @@ func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 			buf = b
 			break
 		}
-		retry -= 1
+		retry--
 	}
-	var index uint32
-	index = uint32(index) + xig.Len
+	var index uint64
+	index = uint64(index) + uint64(xig.Len)
 	for {
 		xig = (*Xinpgen)(unsafe.Pointer(&buf[index]))
 		if uintptr(unsafe.Pointer(xig)) >= uintptr(unsafe.Pointer(exig)) {
@@ -70,7 +70,7 @@ func osTCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 		}
 		xtp := (*Xtcpcb)(unsafe.Pointer(xig))
 		fmt.Printf("Proto: %d\n", xtp.Socket.Xso_protocol)
-		index += xig.Len
+		index += uint64(xig.Len)
 	}
 	return nil, nil
 }
