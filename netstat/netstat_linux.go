@@ -186,7 +186,7 @@ func getProcName(s []byte) string {
 }
 
 func (p *procFd) iterFdDir() {
-	// link name is of the form socket:[5860846]
+	// link Name is of the form socket:[5860846]
 	fddir := path.Join(p.base, "/fd")
 	fi, err := ioutil.ReadDir(fddir)
 	if err != nil {

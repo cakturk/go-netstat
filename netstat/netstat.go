@@ -25,14 +25,14 @@ type SockTabEntry struct {
 	Process    *Process
 }
 
-// Process holds the PID and process name to which each socket belongs
+// Process holds the PID and process Name to which each socket belongs
 type Process struct {
-	pid  int
-	name string
+	Pid  int
+	Name string
 }
 
 func (p *Process) String() string {
-	return fmt.Sprintf("%d/%s", p.pid, p.name)
+	return fmt.Sprintf("%d/%s", p.Pid, p.Name)
 }
 
 // SkState type represents socket connection state

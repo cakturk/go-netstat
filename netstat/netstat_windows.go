@@ -123,8 +123,8 @@ func (pid WinPid) Process(snp ProcessSnapshot) *Process {
 		return nil
 	}
 	return &Process{
-		pid:  int(pid),
-		name: snp.ProcPIDToName(uint32(pid)),
+		Pid:  int(pid),
+		Name: snp.ProcPIDToName(uint32(pid)),
 	}
 }
 
@@ -394,7 +394,7 @@ func CreateToolhelp32Snapshot(flags uint32, pid uint32) (ProcessSnapshot, error)
 	return ret, nil
 }
 
-// ProcPIDToName translates PID to a name
+// ProcPIDToName translates PID to a Name
 func (snp ProcessSnapshot) ProcPIDToName(pid uint32) string {
 	var processEntry Processentry32
 	processEntry.Size = uint32(unsafe.Sizeof(processEntry))
