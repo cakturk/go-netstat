@@ -209,7 +209,7 @@ func (p *procFd) iterFdDir() {
 			}
 			if p.p == nil {
 				stat, err := os.Open(path.Join(p.base, "stat"))
-				defer f.Close()
+				defer stat.Close()
 				if err != nil {
 					return
 				}
