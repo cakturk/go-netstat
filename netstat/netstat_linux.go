@@ -209,7 +209,6 @@ func (p *procFd) iterFdDir() {
 			}
 			if p.p == nil {
 				stat, err := os.Open(path.Join(p.base, "stat"))
-				defer stat.Close()
 				if err != nil {
 					return
 				}
@@ -220,6 +219,7 @@ func (p *procFd) iterFdDir() {
 				z := bytes.SplitN(buf[:n], []byte(" "), 3)
 				name := getProcName(z[1])
 				p.p = &Process{p.pid, name}
+				stat.Close()
 			}
 			sk.Process = p.p
 		}
