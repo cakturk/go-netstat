@@ -197,7 +197,7 @@ func (p *procFd) iterFdDir() {
 	for _, file := range fi {
 		fd := path.Join(fddir, file.Name())
 		lname, err := os.Readlink(fd)
-		if err != nil {
+		if err != nil || !strings.Contains(lname, "socket") {{
 			continue
 		}
 
