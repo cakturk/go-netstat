@@ -57,13 +57,13 @@ func displaySocks() error {
 	}
 
 	// get only listening TCP sockets
-	tabs, err = netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
+	tabs, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
 		return s.State == netstat.Listen
 	})
 	if err != nil {
 		return err
 	}
-	for _, e := range socks {
+	for _, e := range tabs {
 		fmt.Printf("%v\n", e)
 	}
 
