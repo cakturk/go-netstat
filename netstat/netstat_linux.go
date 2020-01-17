@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"path"
@@ -103,7 +102,7 @@ func parseAddr(s string) (*SockAddr, error) {
 	case ipv6StrLen:
 		ip, err = parseIPv6(fields[0])
 	default:
-		log.Fatal("Bad formatted string")
+		err = fmt.Errorf("netstat: bad formatted string: %v", fields[0])
 	}
 	if err != nil {
 		return nil, err
