@@ -25,7 +25,7 @@ type SockTabEntry struct {
 	Process    *Process
 }
 
-// Process holds the PID and process name to which each socket belongs
+// Process holds the PID and process Name to which each socket belongs
 type Process struct {
 	Pid  int
 	Name string

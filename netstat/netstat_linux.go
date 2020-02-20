@@ -79,10 +79,10 @@ func parseIPv6(s string) (net.IP, error) {
 	for len(s) != 0 {
 		grp := s[0:8]
 		u, err := strconv.ParseUint(grp, 16, 32)
-		binary.LittleEndian.PutUint32(ip[i:j], uint32(u))
 		if err != nil {
 			return nil, err
 		}
+		binary.LittleEndian.PutUint32(ip[i:j], uint32(u))
 		i, j = i+grpLen, j+grpLen
 		s = s[8:]
 	}
@@ -185,7 +185,7 @@ func getProcName(s []byte) string {
 }
 
 func (p *procFd) iterFdDir() {
-	// link name is of the form socket:[5860846]
+	// link Name is of the form socket:[5860846]
 	fddir := path.Join(p.base, "/fd")
 	fi, err := ioutil.ReadDir(fddir)
 	if err != nil {
@@ -211,8 +211,10 @@ func (p *procFd) iterFdDir() {
 				if err != nil {
 					return
 				}
+				if stat != nil {
+					defer stat.Close()
+				}
 				n, err := stat.Read(buf[:])
-				stat.Close()
 				if err != nil {
 					return
 				}
@@ -252,8 +254,10 @@ func doNetstat(path string, fn AcceptFn) ([]SockTabEntry, error) {
 	if err != nil {
 		return nil, err
 	}
+	if f != nil {
+		defer f.Close()
+	}
 	tabs, err := parseSocktab(f, fn)
-	f.Close()
 	if err != nil {
 		return nil, err
 	}
