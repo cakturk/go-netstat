@@ -212,13 +212,13 @@ func (p *procFd) iterFdDir() {
 					return
 				}
 				n, err := stat.Read(buf[:])
-				stat.Close()
 				if err != nil {
 					return
 				}
 				z := bytes.SplitN(buf[:n], []byte(" "), 3)
 				name := getProcName(z[1])
 				p.p = &Process{p.pid, name}
+				stat.Close()
 			}
 			sk.Process = p.p
 		}
@@ -249,11 +249,11 @@ func extractProcInfo(sktab []SockTabEntry) {
 // doNetstat - collect information about network port status
 func doNetstat(path string, fn AcceptFn) ([]SockTabEntry, error) {
 	f, err := os.Open(path)
+	defer f.Close()
 	if err != nil {
 		return nil, err
 	}
 	tabs, err := parseSocktab(f, fn)
-	f.Close()
 	if err != nil {
 		return nil, err
 	}
