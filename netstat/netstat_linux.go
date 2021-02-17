@@ -153,6 +153,7 @@ func parseSocktab(r io.Reader, accept AcceptFn) ([]SockTabEntry, error) {
 		}
 		e.UID = uint32(u)
 		e.ino = fields[9]
+        extractProcInfo(&e)
 		if accept(&e) {
 			tab = append(tab, e)
 		}
@@ -163,7 +164,7 @@ func parseSocktab(r io.Reader, accept AcceptFn) ([]SockTabEntry, error) {
 type procFd struct {
 	base  string
 	pid   int
-	sktab []SockTabEntry
+	sktab *SockTabEntry
 	p     *Process
 }
 
@@ -200,8 +201,7 @@ func (p *procFd) iterFdDir() {
 			continue
 		}
 
-		for i := range p.sktab {
-			sk := &p.sktab[i]
+			sk := p.sktab
 			ss := sockPrefix + sk.ino + "]"
 			if ss != lname {
 				continue
@@ -221,11 +221,10 @@ func (p *procFd) iterFdDir() {
 				p.p = &Process{p.pid, name}
 			}
 			sk.Process = p.p
-		}
 	}
 }
 
-func extractProcInfo(sktab []SockTabEntry) {
+func extractProcInfo(sktab *SockTabEntry) {
 	const basedir = "/proc"
 	fi, err := ioutil.ReadDir(basedir)
 	if err != nil {
@@ -257,7 +256,7 @@ func doNetstat(path string, fn AcceptFn) ([]SockTabEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	extractProcInfo(tabs)
+	//extractProcInfo(tabs)
 	return tabs, nil
 }
 
