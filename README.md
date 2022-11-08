@@ -1,3 +1,4 @@
+###  This fork avoids costly process info extraction if all necessary calculation was done in AcceptFn function and it always returns false.
 ### Usage:
 
 ```
