@@ -257,7 +257,11 @@ func doNetstat(path string, fn AcceptFn) ([]SockTabEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	extractProcInfo(tabs)
+
+	if len(tabs) != 0 {
+		extractProcInfo(tabs)
+	}
+
 	return tabs, nil
 }
 
