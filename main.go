@@ -1,3 +1,4 @@
+// rm go.mod;go mod init github.com/abakum/go-netstat;go mod tidy
 package main
 
 import (
@@ -6,7 +7,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/cakturk/go-netstat/netstat"
+	"github.com/abakum/go-netstat/netstat"
 )
 
 var (
