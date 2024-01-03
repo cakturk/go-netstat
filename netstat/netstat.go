@@ -49,19 +49,19 @@ type AcceptFn func(*SockTabEntry) bool
 // NoopFilter - a test function returning true for all elements
 func NoopFilter(*SockTabEntry) bool { return true }
 
-// TCPSocks returns a slice of active TCP sockets containing only those
+// TCPSocks returns a slice of active TCP IPv4 sockets containing only those
 // elements that satisfy the accept function
 func TCPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 	return osTCPSocks(accept)
 }
 
-// TCP6Socks returns a slice of active TCP IPv4 sockets containing only those
+// TCP6Socks returns a slice of active TCP IPv6 sockets containing only those
 // elements that satisfy the accept function
 func TCP6Socks(accept AcceptFn) ([]SockTabEntry, error) {
 	return osTCP6Socks(accept)
 }
 
-// UDPSocks returns a slice of active UDP sockets containing only those
+// UDPSocks returns a slice of active UDP IPv4 sockets containing only those
 // elements that satisfy the accept function
 func UDPSocks(accept AcceptFn) ([]SockTabEntry, error) {
 	return osUDPSocks(accept)
